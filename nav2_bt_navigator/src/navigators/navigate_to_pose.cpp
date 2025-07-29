@@ -82,14 +82,22 @@ NavigateToPoseNavigator::cleanup()
 bool
 NavigateToPoseNavigator::goalReceived(ActionT::Goal::ConstSharedPtr goal)
 {
-  auto bt_xml_filename = goal->behavior_tree;
+  // auto bt_xml_filename = goal->behavior_tree;
 
-  if (!bt_action_server_->loadBehaviorTree(bt_xml_filename)) {
+  // if (!bt_action_server_->loadBehaviorTree(bt_xml_filename)) {
+  //   bt_action_server_->setInternalError(ActionT::Result::FAILED_TO_LOAD_BEHAVIOR_TREE,
+  //     std::string("Error loading XML file: ") + bt_xml_filename + ". Navigation canceled.");
+  //   return false;
+  // }
+
+  std::string xml_path{""};
+  xml_path = ament_index_cpp::get_package_share_directory("iw_nav_behavior_trees") + "/trees";
+  auto xml_path_tmp = std::vector<std::string>{xml_path};
+  if (!bt_action_server_->loadBehaviorTrees(xml_path_tmp)) {
     bt_action_server_->setInternalError(ActionT::Result::FAILED_TO_LOAD_BEHAVIOR_TREE,
       std::string("Error loading XML file: ") + bt_xml_filename + ". Navigation canceled.");
-    return false;
+      return false;
   }
-
   return initializeGoalPose(goal);
 }
 

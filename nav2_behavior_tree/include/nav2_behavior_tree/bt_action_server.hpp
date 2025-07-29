@@ -103,6 +103,7 @@ public:
    * if something went wrong, and previous BT is maintained
    */
   bool loadBehaviorTree(const std::string & bt_xml_filename = "");
+  bool loadBehaviorTrees(const std::vector<std::string>& search_directories);
 
   /**
    * @brief Getter function for BT Blackboard

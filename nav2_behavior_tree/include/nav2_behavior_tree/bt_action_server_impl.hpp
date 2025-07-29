@@ -202,9 +202,12 @@ template<class ActionT, class NodeT>
 bool BtActionServer<ActionT, NodeT>::on_activate()
 {
   resetInternalError();
-  if (!loadBehaviorTree(default_bt_xml_filename_)) {
-    RCLCPP_ERROR(logger_, "Error loading XML file: %s", default_bt_xml_filename_.c_str());
-    return false;
+  // if (!loadBehaviorTree(default_bt_xml_filename_)) {
+  //   RCLCPP_ERROR(logger_, "Error loading XML file: %s", default_bt_xml_filename_.c_str());
+  //   return false;
+  // }
+  if (!loadBehaviorTrees(search_directories)) {
+    RCLCPP_ERROR(node->get_logger(), "Error loading BTs");
   }
   action_server_->activate();
   return true;
@@ -242,6 +245,28 @@ void BtActionServer<ActionT, NodeT>::setGrootMonitoring(
   enable_groot_monitoring_ = enable;
   groot_server_port_ = server_port;
 }
+
+
+template<class ActionT, class NodeT>
+bool BtActionServer<ActionT, NodeT>::loadBehaviorTrees(const std::vector<std::string>& search_directories) {
+  using std::filesystem::directory_iterator;
+  for (const auto& directory : search_directories) {
+    for (auto const& entry : directory_iterator(directory)) {
+      if (entry.path().extension() == ".xml") {
+        try {
+          bt_->registerTreeFromFile(entry.path().string());
+        } catch (const std::exception& exc) {
+          RCLCPP_ERROR_STREAM(node_->get_logger(),
+              "Couldn't open input XML file: " << entry.path().string()
+                                               << ", got exception: " << exc.what());
+          return false;
+        }
+      }
+    }
+  }
+  return true;
+}
+
 
 template<class ActionT, class NodeT>
 bool BtActionServer<ActionT, NodeT>::loadBehaviorTree(const std::string & bt_xml_filename)

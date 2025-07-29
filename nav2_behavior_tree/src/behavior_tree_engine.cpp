@@ -102,6 +102,10 @@ BehaviorTreeEngine::createTreeFromFile(
   return factory_.createTreeFromFile(file_path, blackboard);
 }
 
+void BehaviorTreeEngine::registerTreeFromFile(const std::string& file_path) {
+  return factory_.registerBehaviorTreeFromFile(file_path);
+}
+
 void
 BehaviorTreeEngine::addGrootMonitoring(
   BT::Tree * tree,
