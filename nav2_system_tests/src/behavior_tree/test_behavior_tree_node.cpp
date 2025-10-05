@@ -110,32 +110,31 @@ public:
     const std::vector<std::string> & search_directories)
   {
     namespace fs = std::filesystem;
-    bool is_bt_id = false;
-    if ((file_or_id.length() < 4) ||
-      file_or_id.substr(file_or_id.length() - 4) != ".xml")
-    {
-      is_bt_id = true;
-    }
     // Register all XML behavior subtrees in the directories
+    std::string possible_bt_id = "";
     std::unordered_set<std::string> used_bt_id;
     for (const auto & directory : search_directories) {
       try {
         for (const auto & entry : fs::directory_iterator(directory)) {
           if (entry.path().extension() == ".xml") {
-            auto current_bt_id = bt_engine_->extractBehaviorTreeID(entry.path().string());
+            const auto path_str = entry.path().string();
+            auto current_bt_id = bt_engine_->extractBehaviorTreeID(path_str);
             if (current_bt_id.empty()) {
               std::cerr << "[behavior_tree_handler]: Skipping BT file "
-                        << entry.path().string() << " (missing ID)\n";
+                        << path_str << " (missing ID)\n";
               continue;
             }
-            auto [it, inserted] = used_bt_id.insert(current_bt_id);
+            if (possible_bt_id.empty() && path_str == file_or_id) {
+              possible_bt_id = current_bt_id;
+            }
+            auto inserted = used_bt_id.insert(current_bt_id).second;
             if (!inserted) {
               std::cout << "[behavior_tree_handler]: Warning: Duplicate BT IDs found. "
                 "Make sure to have all BT IDs unique! "
                         << "ID: " << current_bt_id
-                        << " File: " << entry.path().string() << "\n";
+                        << " File: " << path_str << "\n";
             }
-            factory_.registerBehaviorTreeFromFile(entry.path().string());
+            factory_.registerBehaviorTreeFromFile(path_str);
           }
         }
       } catch (const std::exception & e) {
@@ -150,13 +149,8 @@ public:
 
     // Build the tree from the ID (resolved from <root> or <BehaviorTree ID>)
     try {
-      if(!is_bt_id) {
-        tree = factory_.createTreeFromFile(file_or_id, blackboard);
-        RCLCPP_WARN(node_->get_logger(),
-          "Loading BT using file path. This is deprecated. Please use the BT ID instead.");
-      } else {
-        tree = factory_.createTree(file_or_id, blackboard);
-      }
+      const auto & tree_id = possible_bt_id.empty() ? file_or_id : possible_bt_id;
+      tree = factory_.createTree(tree_id, blackboard);
     } catch (BT::RuntimeError & exp) {
       RCLCPP_ERROR(node_->get_logger(),
         "Failed to create BT %s: %s", file_or_id.c_str(), exp.what());
