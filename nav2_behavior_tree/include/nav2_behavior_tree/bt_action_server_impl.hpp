@@ -246,33 +246,31 @@ bool BtActionServer<ActionT, NodeT>::loadBehaviorTree(const std::string & bt_xml
   // Reset any existing Groot2 monitoring
   bt_->resetGrootMonitor();
 
-  bool is_bt_id = false;
-  if ((file_or_id.length() < 4) ||
-    file_or_id.substr(file_or_id.length() - 4) != ".xml")
-  {
-    is_bt_id = true;
-  }
-
+  std::string possible_bt_id = "";
   std::unordered_set<std::string> used_bt_id;
   for (const auto & directory : search_directories_) {
     try {
       for (const auto & entry : fs::directory_iterator(directory)) {
         if (entry.path().extension() == ".xml") {
-          auto current_bt_id = bt_->extractBehaviorTreeID(entry.path().string());
+          const auto path_str = entry.path().string();
+          auto current_bt_id = bt_->extractBehaviorTreeID(path_str);
           if (current_bt_id.empty()) {
             RCLCPP_ERROR(logger_, "Skipping BT file %s (missing ID)",
-              entry.path().string().c_str());
+              path_str.c_str());
             continue;
           }
-          auto [it, inserted] = used_bt_id.insert(current_bt_id);
+          if (possible_bt_id.empty() && path_str == file_or_id) {
+            possible_bt_id = current_bt_id;
+          }
+          auto inserted = used_bt_id.insert(current_bt_id).second;
           if (!inserted) {
             RCLCPP_WARN(
               logger_,
               "Warning: Duplicate BT IDs found. Make sure to have all BT IDs unique! "
               "ID: %s File: %s",
-              current_bt_id.c_str(), entry.path().string().c_str());
+              current_bt_id.c_str(), path_str.c_str());
           }
-          bt_->registerTreeFromFile(entry.path().string());
+          bt_->registerTreeFromFile(path_str);
         }
       }
     } catch (const std::exception & e) {
@@ -283,11 +281,9 @@ bool BtActionServer<ActionT, NodeT>::loadBehaviorTree(const std::string & bt_xml
   }
   // Try to load the main BT tree (by ID)
   try {
-    if(!is_bt_id) {
-      tree_ = bt_->createTreeFromFile(file_or_id, blackboard_);
-    } else {
-      tree_ = bt_->createTree(file_or_id, blackboard_);
-    }
+    const auto & tree_id = possible_bt_id.empty() ? file_or_id : possible_bt_id;
+    tree_ = bt_->createTree(tree_id, blackboard_);
+    RCLCPP_INFO(logger_, "Created BT from %s", file_or_id.c_str());
 
     for (auto & subtree : tree_.subtrees) {
       auto & blackboard = subtree->blackboard;
